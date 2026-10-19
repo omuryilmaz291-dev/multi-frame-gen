@@ -1,0 +1,28 @@
+cmake_minimum_required(VERSION 3.15)
+project(FrameInterp LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Statik CRT: kullanicinin Visual C++ Redistributable kurmasi GEREKMEZ.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
+# shaders/*.hlsl dosyalarini exe'nin icine gom (ayri shaders klasoru gerekmez)
+set(SHADER_NAMES OpticalFlow FrameWarping)
+set(GEN_DIR "${CMAKE_BINARY_DIR}/generated")
+set(SHADER_HDR "#pragma once\nnamespace Shaders {\n")
+foreach(n ${SHADER_NAMES})
+    set(f "${CMAKE_SOURCE_DIR}/shaders/${n}.hlsl")
+    file(READ "${f}" body)
+    string(APPEND SHADER_HDR "inline constexpr const char* ${n} = R\"HLSL(${body})HLSL\";\n")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${f}")
+endforeach()
+string(APPEND SHADER_HDR "}\n")
+file(WRITE "${GEN_DIR}/Shaders.h" "${SHADER_HDR}")
+
+add_executable(FrameInterp WIN32
+    src/main.cpp src/DXGICapture.cpp src/FrameInterpolator.cpp src/OverlayWindow.cpp)
+target_include_directories(FrameInterp PRIVATE "${GEN_DIR}")
+target_compile_definitions(FrameInterp PRIVATE UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+if(MSVC)
+    target_compile_options(FrameInterp PRIVATE /utf-8 /W3)
+endif()
+target_link_libraries(FrameInterp PRIVATE d3d11 dxgi d3dcompiler user32 shell32)
